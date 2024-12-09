@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, Users, Award, Clock } from 'lucide-react'
+import { Calendar, Award, Clock, TrendingUp } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import type { Database, UserProfile } from '@/lib/types/database'
 
@@ -13,17 +13,20 @@ interface ClassSession {
   title: string
   date: string
   time: string
-  students: number
+  instructor: string
 }
 
-interface StudentProfile extends UserProfile {
-  beltRank?: string
-  lastAttendance?: string
+interface Achievement {
+  id: string
+  title: string
+  date: string
+  description: string
 }
 
-export function InstructorDashboard() {
+export function StudentDashboard() {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [upcomingClasses, setUpcomingClasses] = useState<ClassSession[]>([])
-  const [students, setStudents] = useState<StudentProfile[]>([])
+  const [achievements, setAchievements] = useState<Achievement[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClientComponentClient<Database>()
 
@@ -33,6 +36,18 @@ export function InstructorDashboard() {
 
   async function loadDashboardData() {
     try {
+      // Get user profile
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      setProfile(profileData)
+
       // In a real app, you would fetch this data from your database
       setUpcomingClasses([
         {
@@ -40,25 +55,31 @@ export function InstructorDashboard() {
           title: 'Beginner BJJ',
           date: '2024-01-10',
           time: '09:00',
-          students: 12
+          instructor: 'John Doe'
         },
         {
           id: '2',
           title: 'Advanced BJJ',
           date: '2024-01-10',
           time: '10:30',
-          students: 8
+          instructor: 'Jane Smith'
         }
       ])
 
-      // Fetch students (in a real app, this would be filtered by instructor)
-      const { data: studentsData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'student')
-        .limit(5)
-
-      setStudents(studentsData || [])
+      setAchievements([
+        {
+          id: '1',
+          title: 'White Belt',
+          date: '2023-12-01',
+          description: 'Started your BJJ journey'
+        },
+        {
+          id: '2',
+          title: 'First Submission',
+          date: '2023-12-15',
+          description: 'Successfully executed your first submission'
+        }
+      ])
     } catch (error) {
       toast({
         title: 'Error',
@@ -79,42 +100,42 @@ export function InstructorDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today's Classes</CardTitle>
+            <CardTitle className="text-sm font-medium">Classes Attended</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">2 morning, 1 evening</p>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{students.length}</div>
-            <p className="text-xs text-muted-foreground">Across all classes</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Next Belt Test</CardTitle>
+            <CardTitle className="text-sm font-medium">Current Belt</CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Jan 15</div>
-            <p className="text-xs text-muted-foreground">8 students eligible</p>
+            <div className="text-2xl font-bold">White</div>
+            <p className="text-xs text-muted-foreground">2 stripes</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Hours Taught</CardTitle>
+            <CardTitle className="text-sm font-medium">Training Hours</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">Total hours</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Progress</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">85%</div>
+            <p className="text-xs text-muted-foreground">To next stripe</p>
           </CardContent>
         </Card>
       </div>
@@ -136,15 +157,13 @@ export function InstructorDashboard() {
                     <p className="text-sm text-muted-foreground">
                       {session.date} at {session.time}
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      Instructor: {session.instructor}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-sm text-muted-foreground">
-                      {session.students} students
-                    </div>
-                    <Button variant="outline" size="sm">
-                      View Details
-                    </Button>
-                  </div>
+                  <Button variant="outline" size="sm">
+                    Register
+                  </Button>
                 </div>
               ))}
             </div>
@@ -153,26 +172,25 @@ export function InstructorDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Students</CardTitle>
+            <CardTitle>Recent Achievements</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {students.map((student) => (
+              {achievements.map((achievement) => (
                 <div
-                  key={student.id}
+                  key={achievement.id}
                   className="flex items-center justify-between p-4 border rounded-lg"
                 >
                   <div>
-                    <h3 className="font-medium">
-                      {student.firstname} {student.lastname}
-                    </h3>
+                    <h3 className="font-medium">{achievement.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {student.email}
+                      {achievement.date}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {achievement.description}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm">
-                    View Profile
-                  </Button>
+                  <Award className="h-5 w-5 text-yellow-500" />
                 </div>
               ))}
             </div>

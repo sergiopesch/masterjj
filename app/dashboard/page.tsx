@@ -1,9 +1,11 @@
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { getUser } from "@/lib/auth"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppLayout } from '@/components/layout/app-layout'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getUserProfile, signOut } from '@/lib/auth'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import {
   Activity,
   Calendar,
@@ -11,139 +13,97 @@ import {
   Trophy,
   TrendingUp,
   Users,
-} from "lucide-react"
+  LogOut,
+} from 'lucide-react'
+import type { UserProfile } from '@/lib/types/database'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const user = getUser()
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
-      router.push("/login")
+    async function loadProfile() {
+      const userProfile = await getUserProfile()
+      if (!userProfile) {
+        router.push('/auth/sign-in')
+        return
+      }
+      setProfile(userProfile)
+      setLoading(false)
     }
+    loadProfile()
   }, [router])
 
-  if (!user) return null
+  if (loading) {
+    return <AppLayout requireAuth>Loading...</AppLayout>
+  }
 
-  const stats = [
-    {
-      title: "Classes Attended",
-      value: "24",
-      icon: Calendar,
-      description: "This month",
-    },
-    {
-      title: "Training Hours",
-      value: "48",
-      icon: Clock,
-      description: "Total hours",
-    },
-    {
-      title: "Techniques Learned",
-      value: "156",
-      icon: Activity,
-      description: "Documented",
-    },
-    {
-      title: "Current Streak",
-      value: "8",
-      icon: TrendingUp,
-      description: "Days",
-    },
-  ]
-
-  const instructorStats = [
-    {
-      title: "Active Students",
-      value: "45",
-      icon: Users,
-      description: "Currently enrolled",
-    },
-    {
-      title: "Classes Taught",
-      value: "32",
-      icon: Calendar,
-      description: "This month",
-    },
-    {
-      title: "Student Progress",
-      value: "85%",
-      icon: Trophy,
-      description: "Average improvement",
-    },
-    {
-      title: "Teaching Hours",
-      value: "64",
-      icon: Clock,
-      description: "This month",
-    },
-  ]
-
-  const displayStats = user.role === "instructor" ? instructorStats : stats
+  if (!profile) {
+    return <AppLayout requireAuth>Please sign in to continue</AppLayout>
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {displayStats.map((stat, index) => (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium">
-                {stat.title}
+    <AppLayout requireAuth>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">
+            Welcome, {profile.firstname || 'User'}!
+          </h1>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Activity Overview
               </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {stat.description}
-              </p>
+              <p>Your recent activity and progress</p>
             </CardContent>
           </Card>
-        ))}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Upcoming Sessions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>View your scheduled classes</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Achievements
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Track your milestones</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await signOut()
+              router.push('/auth/sign-in')
+            }}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 text-sm text-muted-foreground"
-                >
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  <span>Completed Advanced Guard class</span>
-                  <span className="ml-auto">2h ago</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Classes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 text-sm text-muted-foreground"
-                >
-                  <Calendar className="h-4 w-4" />
-                  <span>No-Gi Fundamentals</span>
-                  <span className="ml-auto">Tomorrow, 10:00 AM</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </AppLayout>
   )
 }
