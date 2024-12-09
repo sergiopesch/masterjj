@@ -1,53 +1,66 @@
-# Next.js App with Passwordless Authentication
+# MasterJJ - BJJ Training Platform
 
-A modern Next.js application featuring passwordless email authentication using Supabase.
+A modern platform for Brazilian Jiu-Jitsu practitioners and instructors to enhance their training experience through technology. Built with Next.js and secured with passwordless authentication.
 
-## Features
+## 🥋 Features
 
-- 🔐 Passwordless Authentication
-- 📧 Email Magic Links
-- 🎨 Modern UI with Shadcn/UI
-- 🔄 Type-Safe with TypeScript
-- 📱 Responsive Design
+- **Smart Scheduling**: Get personalized class recommendations based on your skill level and availability
+- **HD Video Library**: Access high-quality technique videos from world-class instructors
+- **Progress Tracking**: Monitor your improvement with advanced analytics
+- **Community Integration**: Connect with training partners and join technique study groups
+- **Achievement System**: Track your progression with badges and milestones
+- **Technique Journal**: Document your learning journey with notes, videos, and insights
+- **Secure Authentication**: Passwordless email authentication for enhanced security
 
-## Getting Started
+## 🚀 Tech Stack
 
-1. Clone the repository
-```bash
-git clone [your-repo-url]
-cd [your-repo-name]
-```
+- **Frontend**: Next.js with TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI
+- **Authentication**: Supabase
+- **Animation**: Framer Motion
+- **Icons**: Lucide Icons
 
-2. Install dependencies
-```bash
-npm install
-```
+## 🛠️ Getting Started
 
-3. Set up environment variables
-```bash
-cp .env.example .env.local
-```
-Then edit `.env.local` with your Supabase credentials.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sergiopesch/masterjj.git
+   cd masterjj
+   ```
 
-4. Run the development server
-```bash
-npm run dev
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Set up environment variables:
+   - Copy `.env.example` to `.env.local`
+   - Add your Supabase credentials:
+     ```
+     NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+     ```
 
-## Environment Variables
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-Create a `.env.local` file with the following variables:
-```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
+Visit `http://localhost:3000` to see the application running.
 
-## Tech Stack
+## 🔐 Authentication Flow
 
-- [Next.js](https://nextjs.org/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Supabase](https://supabase.io/)
-- [Shadcn/UI](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
+The application uses Supabase's passwordless authentication:
+1. Users enter their email address
+2. A magic link is sent to their email
+3. Clicking the link authenticates them securely
+4. No passwords to remember or manage
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
