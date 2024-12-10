@@ -50,40 +50,73 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   const supabase = createClientComponentClient<Database>()
   
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const { data: profile } = await supabase
+    console.log('Getting user session...')
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      return null
+    }
+    
+    if (!session?.user) {
+      console.log('No session found')
+      return null
+    }
+    
+    console.log('Getting user profile...')
+    const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('*')
-      .eq('id', user.id)
+      .select('id, firstname, lastname, phone, email, role, created_at, last_sign_in_at, is_anonymous')
+      .eq('id', session.user.id)
       .single()
 
+    if (profileError) {
+      console.error('Error fetching profile:', profileError)
+      return null
+    }
+
+    console.log('Profile found:', profile)
     return profile
   } catch (error) {
-    console.error('Error fetching user profile:', error)
+    console.error('Unexpected error in getUserProfile:', error)
     return null
   }
 }
 
-export async function updateUserProfile(updates: Partial<Database['public']['Tables']['users']['Update']>): Promise<UserProfile | null> {
+export async function updateUserProfile(updates: UpdateUserProfile): Promise<UserProfile | null> {
   const supabase = createClientComponentClient<Database>()
   
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    console.log('Getting user...')
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError) {
+      console.error('Error getting user:', userError)
+      throw userError
+    }
+    
+    if (!user) {
+      console.error('No user found')
+      throw new Error('Not authenticated')
+    }
 
+    console.log('Updating profile...')
     const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', user.id)
-      .select()
+      .select('id, firstname, lastname, phone, email, role, created_at, last_sign_in_at, is_anonymous')
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error updating profile:', error)
+      throw error
+    }
+
+    console.log('Profile updated:', data)
     return data
   } catch (error) {
-    console.error('Error updating user profile:', error)
+    console.error('Unexpected error updating user profile:', error)
     throw error
   }
 }
@@ -115,7 +148,21 @@ export function getRoleBasedRedirect(role: string) {
 
 export async function signOut() {
   const supabase = createClientComponentClient()
-  await supabase.auth.signOut()
+  
+  try {
+    console.log('Signing out...')
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Error signing out:', error)
+      throw error
+    }
+    console.log('Successfully signed out')
+    removeUser()
+    return { error: null }
+  } catch (error) {
+    console.error('Unexpected error signing out:', error)
+    throw error
+  }
 }
 
 export function getUser(): User | null {

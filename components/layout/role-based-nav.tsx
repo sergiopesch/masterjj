@@ -20,19 +20,19 @@ import type { UserProfile } from '@/lib/types/database'
 
 const roleBasedLinks = {
   admin: [
-    { href: '/dashboard', label: 'Dashboard', icon: BookOpen },
+    { href: '/home', label: 'Home', icon: BookOpen },
     { href: '/users', label: 'Manage Users', icon: Users },
     { href: '/instructors', label: 'Instructors', icon: GraduationCap },
     { href: '/settings', label: 'Settings', icon: Settings },
   ],
   instructor: [
-    { href: '/dashboard', label: 'Dashboard', icon: BookOpen },
+    { href: '/home', label: 'Home', icon: BookOpen },
     { href: '/my-classes', label: 'My Classes', icon: Calendar },
     { href: '/students', label: 'My Students', icon: Users },
     { href: '/profile', label: 'Profile', icon: User },
   ],
   student: [
-    { href: '/dashboard', label: 'Dashboard', icon: BookOpen },
+    { href: '/home', label: 'Home', icon: BookOpen },
     { href: '/classes', label: 'Classes', icon: Calendar },
     { href: '/profile', label: 'Profile', icon: User },
   ],
