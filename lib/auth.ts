@@ -66,16 +66,24 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     console.log('Getting user profile...')
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('id, firstname, lastname, phone, email, role, created_at, last_sign_in_at, is_anonymous')
+      .select('*')
       .eq('id', session.user.id)
       .single()
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError)
+      if (profileError.code === 'PGRST116') {
+        console.log('Profile not found')
+      } else {
+        console.error('Error fetching profile:', profileError)
+      }
       return null
     }
 
-    console.log('Profile found:', profile)
+    if (!profile) {
+      console.log('No profile data returned')
+      return null
+    }
+
     return profile
   } catch (error) {
     console.error('Unexpected error in getUserProfile:', error)
@@ -88,14 +96,14 @@ export async function updateUserProfile(updates: UpdateUserProfile): Promise<Use
   
   try {
     console.log('Getting user...')
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
+    const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+
     if (userError) {
       console.error('Error getting user:', userError)
       throw userError
     }
     
-    if (!user) {
+    if (!currentUser) {
       console.error('No user found')
       throw new Error('Not authenticated')
     }
@@ -103,9 +111,12 @@ export async function updateUserProfile(updates: UpdateUserProfile): Promise<Use
     console.log('Updating profile...')
     const { data, error } = await supabase
       .from('users')
-      .update(updates)
-      .eq('id', user.id)
-      .select('id, firstname, lastname, phone, email, role, created_at, last_sign_in_at, is_anonymous')
+      .update({
+        ...updates,
+        auth_provider: 'google' // Ensure auth_provider is always set
+      })
+      .eq('id', currentUser.id)
+      .select()
       .single()
 
     if (error) {
@@ -166,15 +177,20 @@ export async function signOut() {
 }
 
 export function getUser(): User | null {
+  if (typeof window === 'undefined') return null
   const userStr = localStorage.getItem("user");
   if (!userStr) return null;
   return JSON.parse(userStr);
 }
 
 export function setUser(user: User) {
-  localStorage.setItem("user", JSON.stringify(user));
+  if (typeof window !== 'undefined') {
+    localStorage.setItem("user", JSON.stringify(user));
+  }
 }
 
 export function removeUser() {
-  localStorage.removeItem("user");
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem("user");
+  }
 }

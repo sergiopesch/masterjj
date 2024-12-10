@@ -16,266 +16,115 @@ import {
 } from "@/components/ui/card"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { toast } from '@/components/ui/use-toast'
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { loginSchema, profileSchema, type LoginFormData, type ProfileFormData } from "@/lib/validations/auth"
+import { checkRateLimit } from "@/lib/rate-limiter"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Icons } from "@/components/ui/icons"
+import { cn } from "@/lib/utils"
 
-interface ProfileData {
-  firstname: string
-  lastname: string
-  phone: string
+interface LoginState {
+  isLoading: boolean;
+  error: string;
+  showProfileForm: boolean;
+  userId: string;
 }
+
+type LoginAction =
+  | { type: 'START_LOADING' }
+  | { type: 'STOP_LOADING' }
+  | { type: 'SET_ERROR'; error: string }
+  | { type: 'SET_SHOW_PROFILE'; value: boolean }
+  | { type: 'SET_USER_ID'; id: string }
+  | { type: 'RESET_FORM' };
+
+const loginReducer = (state: LoginState, action: LoginAction): LoginState => {
+  switch (action.type) {
+    case 'START_LOADING':
+      return { ...state, isLoading: true, error: '' };
+    case 'STOP_LOADING':
+      return { ...state, isLoading: false };
+    case 'SET_ERROR':
+      return { ...state, error: action.error, isLoading: false };
+    case 'SET_SHOW_PROFILE':
+      return { ...state, showProfileForm: action.value };
+    case 'SET_USER_ID':
+      return { ...state, userId: action.id };
+    case 'RESET_FORM':
+      return initialState;
+    default:
+      return state;
+  }
+};
+
+const initialState: LoginState = {
+  isLoading: false,
+  error: '',
+  showProfileForm: false,
+  userId: '',
+};
 
 export function LoginForm() {
   const router = useRouter()
-  const [formData, setFormData] = React.useState({
-    email: "",
-    password: "",
-  })
-  const [profileData, setProfileData] = React.useState<ProfileData>({
-    firstname: "",
-    lastname: "",
-    phone: "",
-  })
-  const [error, setError] = React.useState("")
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [showProfileForm, setShowProfileForm] = React.useState(false)
-  const [userId, setUserId] = React.useState<string>("")
+  const supabase = createClientComponentClient()
+  const [state, dispatch] = React.useReducer(loginReducer, initialState)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
+  const handleSignInWithGoogle = async () => {
     try {
-      const supabase = createClientComponentClient()
-      
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      })
-
-      if (signInError) throw signInError
-
-      if (data?.user) {
-        setUserId(data.user.id)
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('firstname, lastname, phone')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError && profileError.code !== 'PGRST116') throw profileError
-
-        // Check if profile is incomplete
-        if (!profile || !profile.firstname || !profile.lastname || !profile.phone) {
-          setShowProfileForm(true)
-          setIsLoading(false)
-          return
+      dispatch({ type: 'START_LOADING' })
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
         }
-
-        toast({
-          title: 'Welcome back!',
-          description: `Signed in as ${profile.firstname}`,
-        })
-
-        router.push('/home')
-      }
-    } catch (error: any) {
-      setError(error?.message || "Invalid email or password")
+      })
+      if (error) throw error
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', error: 'Error signing in with Google' })
       toast({
-        title: 'Error',
-        description: error?.message || "Invalid email or password",
-        variant: 'destructive',
+        title: "Error",
+        description: "There was a problem signing in with Google",
+        variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      dispatch({ type: 'STOP_LOADING' })
     }
-  }
-
-  const handleProfileSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      const supabase = createClientComponentClient()
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          firstname: profileData.firstname,
-          lastname: profileData.lastname,
-          phone: profileData.phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId)
-
-      if (updateError) throw updateError
-
-      toast({
-        title: 'Profile updated',
-        description: 'Your profile has been completed successfully.',
-      })
-
-      router.push('/home')
-    } catch (error: any) {
-      setError(error?.message || "Failed to update profile")
-      toast({
-        title: 'Error',
-        description: error?.message || "Failed to update profile",
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    if (['firstname', 'lastname', 'phone'].includes(name)) {
-      setProfileData(prev => ({ ...prev, [name]: value }))
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
-    }
-  }
-
-  if (showProfileForm) {
-    return (
-      <div className="flex flex-col items-center space-y-6 w-full max-w-md">
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Complete Your Profile</CardTitle>
-            <CardDescription>
-              Please provide your details to continue
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleProfileSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstname">First Name</Label>
-                <Input
-                  id="firstname"
-                  name="firstname"
-                  placeholder="Enter your first name"
-                  value={profileData.firstname}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastname">Last Name</Label>
-                <Input
-                  id="lastname"
-                  name="lastname"
-                  placeholder="Enter your last name"
-                  value={profileData.lastname}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="Enter your phone number"
-                  value={profileData.phone}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              {error && (
-                <div className="text-sm text-red-500 text-center">
-                  {error}
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Saving..." : "Complete Profile"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
-    )
   }
 
   return (
-    <div className="flex flex-col items-center space-y-6 w-full max-w-md">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Welcome Back!</h1>
-        <p className="text-muted-foreground">
-          Sign in to continue your training journey
-        </p>
-      </div>
-
-      <Card className="w-full">
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                  className="h-11"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="text-sm text-red-500 text-center">
-                {error}
-              </div>
+    <Card className="w-full max-w-lg">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
+        <CardDescription>
+          Continue with Google to access your account
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button
+          variant="outline"
+          type="button"
+          disabled={state.isLoading}
+          className="w-full"
+          onClick={handleSignInWithGoogle}
+        >
+          <span className="mr-2 inline-flex h-4 w-4 items-center justify-center">
+            {state.isLoading ? (
+              <Icons.spinner className="h-4 w-4 animate-spin" />
+            ) : (
+              <Icons.google className="h-4 w-4" />
             )}
-
-            <Button
-              type="submit"
-              className="w-full h-11"
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
-
-          <div className="mt-4 text-center text-sm">
-            <Link
-              href="/auth/sign-up"
-              className="text-primary hover:underline"
-            >
-              Don&apos;t have an account? Sign up
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </span>
+          Continue with Google
+        </Button>
+      </CardContent>
+    </Card>
   )
 }

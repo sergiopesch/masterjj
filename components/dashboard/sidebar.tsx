@@ -14,71 +14,101 @@ import {
   Video,
   LogOut,
   Sliders,
+  Trophy,
+  ClipboardList,
+  BookCheck
 } from "lucide-react"
-import { removeUser, getUser } from "@/lib/auth"
+import { useAuth } from "@/providers/auth-provider"
 import { useRouter } from "next/navigation"
+import type { Route } from 'next'
+
+interface NavItem {
+  href: Route
+  title: string
+  icon: any
+  role?: string[]
+}
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
-  items: {
-    href: string
-    title: string
-    icon: any
-    role?: string[]
-  }[]
+  items: NavItem[]
 }
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname()
   const router = useRouter()
-  const user = getUser()
+  const { profile, signOut } = useAuth()
 
-  const sidebarItems = [
+  const sidebarItems: NavItem[] = [
     {
-      href: "/dashboard",
+      href: "/dashboard" as Route,
       title: "Dashboard",
       icon: LayoutDashboard,
     },
     {
-      href: "/dashboard/classes",
+      href: "/dashboard/classes" as Route,
       title: "Classes",
       icon: Calendar,
     },
     {
-      href: "/dashboard/techniques",
-      title: "Techniques",
+      href: "/dashboard/techniques" as Route,
+      title: "Techniques Library",
       icon: Video,
     },
     {
-      href: "/dashboard/progress",
-      title: "Progress",
+      href: "/dashboard/progress" as Route,
+      title: "My Progress",
       icon: GraduationCap,
+      role: ["student"],
     },
     {
-      href: "/dashboard/students",
-      title: "Students",
+      href: "/dashboard/achievements" as Route,
+      title: "Achievements",
+      icon: Trophy,
+      role: ["student"],
+    },
+    {
+      href: "/dashboard/students" as Route,
+      title: "Student Management",
       icon: Users,
       role: ["admin", "instructor"],
     },
     {
-      href: "/dashboard/instructor-settings",
+      href: "/dashboard/curriculum" as Route,
+      title: "Curriculum Planning",
+      icon: ClipboardList,
+      role: ["instructor"],
+    },
+    {
+      href: "/dashboard/grading" as Route,
+      title: "Student Grading",
+      icon: BookCheck,
+      role: ["instructor"],
+    },
+    {
+      href: "/dashboard/instructor-settings" as Route,
       title: "Instructor Settings",
       icon: Sliders,
       role: ["instructor"],
     },
     {
-      href: "/dashboard/settings",
-      title: "Settings",
+      href: "/dashboard/admin" as Route,
+      title: "Admin Panel",
+      icon: Settings,
+      role: ["admin"],
+    },
+    {
+      href: "/dashboard/settings" as Route,
+      title: "Profile Settings",
       icon: Settings,
     },
   ]
 
   const filteredItems = sidebarItems.filter(
-    (item) => !item.role || (user && item.role.includes(user.role))
+    (item) => !item.role || (profile?.role && item.role.includes(profile.role))
   )
 
-  const handleLogout = () => {
-    removeUser()
-    router.push("/login")
+  const handleLogout = async () => {
+    await signOut()
   }
 
   return (
@@ -108,6 +138,10 @@ export function Sidebar({ className }: { className?: string }) {
         ))}
       </div>
       <div className="p-4 mt-auto border-t">
+        <div className="mb-4 px-2">
+          <p className="text-sm font-medium">{profile?.firstname} {profile?.lastname}</p>
+          <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+        </div>
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-muted-foreground"

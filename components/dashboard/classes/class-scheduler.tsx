@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 interface ClassSchedulerProps {
+  date?: Date
+  onDateSelect?: (date: Date | undefined) => void
   onSchedule?: (data: {
     date: Date
     type: string
@@ -29,8 +31,7 @@ interface ClassSchedulerProps {
   }) => void
 }
 
-export function ClassScheduler({ onSchedule }: ClassSchedulerProps) {
-  const [date, setDate] = useState<Date>()
+export function ClassScheduler({ date, onDateSelect, onSchedule }: ClassSchedulerProps) {
   const [type, setType] = useState<string>("")
   const [time, setTime] = useState<string>("")
   const [duration, setDuration] = useState<string>("")
@@ -55,7 +56,7 @@ export function ClassScheduler({ onSchedule }: ClassSchedulerProps) {
           <PopoverContent className="w-auto p-0" align="start">
             <Input
               type="date"
-              onChange={(e) => setDate(new Date(e.target.value))}
+              onChange={(e) => onDateSelect?.(new Date(e.target.value))}
               className="w-full"
             />
           </PopoverContent>

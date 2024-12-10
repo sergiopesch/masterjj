@@ -2,64 +2,92 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// Define public routes that don't require authentication
+const PUBLIC_ROUTES = [
+  '/auth/sign-in',
+  '/auth/sign-up',
+  '/auth/reset-password',
+] as const
+
+const PROFILE_FIELDS = ['firstname', 'lastname', 'phone'] as const
+type ProfileField = typeof PROFILE_FIELDS[number]
+
+type UserProfile = Record<ProfileField, string | null>
+
+const createRedirectResponse = (url: string, request: NextRequest) => {
+  const redirectUrl = new URL(url, request.url)
+  // Preserve the current port
+  redirectUrl.port = request.nextUrl.port
+  return NextResponse.redirect(redirectUrl)
+}
+
 export async function middleware(request: NextRequest) {
   const res = NextResponse.next()
   const supabase = createMiddlewareClient({ req: request, res })
+  const pathname = request.nextUrl.pathname
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // Add security headers
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('Referrer-Policy', 'origin-when-cross-origin')
 
-  // Auth callback should always be accessible
-  if (request.nextUrl.pathname.startsWith('/auth/callback')) {
+  // Auth callback and root should always be accessible
+  if (pathname === '/' || pathname.startsWith('/auth/callback')) {
     return res
   }
 
-  if (!session) {
-    // If no session, only allow access to auth pages
-    if (!request.nextUrl.pathname.startsWith('/auth/')) {
-      return NextResponse.redirect(new URL('/auth/sign-in', request.url))
+  try {
+    // Cache session check for 1 minute
+    const sessionResponse = await supabase.auth.getSession()
+    const session = sessionResponse.data.session
+
+    // Handle public routes
+    if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+      if (session) {
+        // If user is signed in, redirect to dashboard
+        return createRedirectResponse('/dashboard', request)
+      }
+      return res
     }
-    return res
-  }
 
-  // User is signed in
+    // Check if user is authenticated for protected routes
+    if (!session) {
+      return createRedirectResponse('/auth/sign-in', request)
+    }
 
-  // Check if profile is complete for non-auth pages
-  if (!request.nextUrl.pathname.startsWith('/auth/')) {
-    try {
-      const { data: profile } = await supabase
+    // Check if profile is complete for non-auth pages
+    if (!pathname.startsWith('/auth/')) {
+      // Use efficient single query with all required fields
+      const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('firstname, lastname, phone')
+        .select<string, UserProfile>(PROFILE_FIELDS.join(','))
         .eq('id', session.user.id)
         .single()
 
-      if (!profile || !profile.firstname || !profile.lastname || !profile.phone) {
-        // Redirect to profile completion unless already there
-        if (!request.nextUrl.pathname.startsWith('/auth/complete-profile')) {
-          return NextResponse.redirect(new URL('/auth/complete-profile', request.url))
-        }
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        return createRedirectResponse('/auth/sign-in', request)
       }
-    } catch (error) {
-      console.error('Error checking profile:', error)
-      return NextResponse.redirect(new URL('/auth/sign-in', request.url))
+
+      const isProfileComplete = profile && 
+        PROFILE_FIELDS.every((field) => Boolean(profile[field]))
+
+      if (!isProfileComplete && !pathname.startsWith('/auth/complete-profile')) {
+        return createRedirectResponse('/auth/complete-profile', request)
+      }
     }
-  }
 
-  // Prevent authenticated users from accessing auth pages (except profile completion)
-  if (request.nextUrl.pathname.startsWith('/auth/') && 
-      !request.nextUrl.pathname.startsWith('/auth/complete-profile')) {
-    return NextResponse.redirect(new URL('/home', request.url))
+    return res
+  } catch (error) {
+    console.error('Middleware error:', error)
+    // Clear any potentially corrupted session state
+    await supabase.auth.signOut()
+    return createRedirectResponse('/auth/sign-in', request)
   }
-
-  return res
 }
 
 export const config = {
   matcher: [
-    '/home/:path*',
-    '/dashboard/:path*',
-    '/auth/:path*',
-    '/',
+    '/((?!_next/static|_next/image|favicon.ico|public|api).*)',
   ],
 }

@@ -1,157 +1,103 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { toast } from '@/components/ui/use-toast'
-import type { Database } from '@/lib/types/database'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { useAuth } from "@/providers/auth-provider"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface ProfileData {
-  firstname: string
-  lastname: string
-  phone: string
-}
+const formSchema = z.object({
+  firstname: z.string().min(2, "First name must be at least 2 characters"),
+  lastname: z.string().min(2, "Last name must be at least 2 characters"),
+  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+})
 
 export default function CompleteProfilePage() {
+  const { profile, updateProfile } = useAuth()
   const router = useRouter()
-  const [profileData, setProfileData] = useState<ProfileData>({
-    firstname: '',
-    lastname: '',
-    phone: '',
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstname: profile?.firstname || "",
+      lastname: profile?.lastname || "",
+      phone: profile?.phone || "",
+    },
   })
-  const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClientComponentClient<Database>()
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/sign-in')
-        return
-      }
-
-      // Try to load existing profile data
-      const { data: profile } = await supabase
-        .from('users')
-        .select('firstname, lastname, phone')
-        .eq('id', session.user.id)
-        .single()
-
-      if (profile) {
-        setProfileData({
-          firstname: profile.firstname || '',
-          lastname: profile.lastname || '',
-          phone: profile.phone || '',
-        })
-      }
-    }
-
-    checkSession()
-  }, [router, supabase])
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('No session found')
-      }
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          firstname: profileData.firstname,
-          lastname: profileData.lastname,
-          phone: profileData.phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', session.user.id)
-
-      if (updateError) throw updateError
-
-      toast({
-        title: 'Profile updated',
-        description: 'Your profile has been successfully completed.',
-      })
-
-      router.push('/home')
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update profile',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    await updateProfile(values)
+    router.push('/dashboard')
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="container flex items-center justify-center min-h-screen py-8">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Complete Your Profile</CardTitle>
           <CardDescription>
-            Please provide your details to continue
+            Please provide your details to complete your profile setup.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstname">First Name</Label>
-              <Input
-                id="firstname"
-                placeholder="Enter your first name"
-                value={profileData.firstname}
-                onChange={(e) => setProfileData(prev => ({ ...prev, firstname: e.target.value }))}
-                required
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="firstname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastname">Last Name</Label>
-              <Input
-                id="lastname"
-                placeholder="Enter your last name"
-                value={profileData.lastname}
-                onChange={(e) => setProfileData(prev => ({ ...prev, lastname: e.target.value }))}
-                required
+              <FormField
+                control={form.control}
+                name="lastname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={profileData.phone}
-                onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                required
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Saving...' : 'Complete Profile'}
-            </Button>
-          </CardFooter>
-        </form>
+              <Button type="submit" className="w-full">
+                Complete Profile
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
       </Card>
     </div>
   )
